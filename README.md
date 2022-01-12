@@ -13,6 +13,6 @@ This project has only been partially finished. Future improvements that will be 
 
 * Looking for checks more efficient
 
-* Making the computer player implement Alpha-Beta pruning, Monte Carlo tree search and a neural network based approach
+* Making the computer player implement Monte Carlo tree search and a convolutional neural network based approach
 
 * Many UI improvements
