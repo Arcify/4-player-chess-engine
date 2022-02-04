@@ -11,7 +11,7 @@ Modules needed:
 
 This project has only been partially finished. Future improvements that will be made are:
 
-* Fixing errors in in_check()
+* Looking for checks more efficient
 
 * Making the computer player implement Monte Carlo tree search and a convolutional neural network based approach
 
