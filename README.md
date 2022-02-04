@@ -17,4 +17,4 @@ This project has only been partially finished. Future improvements that will be 
 
 * Many UI improvements
 
-* Test2
+* Test
