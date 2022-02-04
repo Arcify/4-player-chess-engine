@@ -16,5 +16,3 @@ This project has only been partially finished. Future improvements that will be 
 * Making the computer player implement Monte Carlo tree search and a convolutional neural network based approach
 
 * Many UI improvements
-
-* Test
