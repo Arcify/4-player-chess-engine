@@ -113,6 +113,7 @@ class RandomComputerPlayer(Player):
         super().__init__(color)
         self.algorithm = algorithm
         self.best_move = None
+        self.complexity = 0
         
     def play(self, moves, board):
         """
@@ -133,11 +134,14 @@ class RandomComputerPlayer(Player):
         #because second parameter of randint is exclusive
     
     def alpha_beta(self, board, depth, initial_depth, alpha, beta):
+        self.complexity += 1
         if depth == 0:
             return board.score()
         
-        best_score = float('-inf')
         board.get_moves()
+        if board.legal_moves == None:
+            return board.score()
+        best_score = float('-inf')
         for move in board.legal_moves:
             score = -self.alpha_beta(board.simulate(move), depth-1, initial_depth, -beta, -alpha)
             if score > best_score:
@@ -318,55 +322,48 @@ class Board():
         Returns:
             None
         """
+        check = self.in_check()
         for pos in self.piece_locations.keys():
-            piece = self.piece_locations.get(pos)
-            if piece.get_color() == self.players[self.current_player].get_color():
-                self.legal_moves = piece.get_legal_moves(self, self.legal_moves, pos)
-        self.filter_moves()
+            if self.piece_locations[pos].get_color() == self.players[self.current_player].get_color():
+                if check is not None:
+                   self.legal_moves = self.block_check(check)
+                else:
+                    self.legal_moves = self.piece_locations[pos].get_legal_moves(self, self.legal_moves, pos)
         
-    def filter_moves(self):
-        """
-        Removes all the moves that lead to a check from the list of possible moves
-        
-        Args:
-            None
-        
-        Returns:
-            None
-        """
-        for move in reversed(self.legal_moves): 
-            #reversed so pieces can be removed during the iteration
-            removed_piece = self.make_move(move)
-            #check for all moves if it leads to a check and undo move again
-            #removed piece has to be stored to place it back
-            #on the board after undoing the move
-            if self.in_check(): #means move leads to check and thus is not legal
-                self.legal_moves.remove(move)
-            self.undo_move(move, removed_piece)
+    def block_check(self, check):
+        valid_pos = []
+        for tiles in range(1, 13):
+            square = Position(check[1].get_x() + check[2][0] * tiles, check[1].get_y() + check[2][1] * tiles)
+            valid_pos.append(square)
+            if (square.get_x(), square.get_y()) == check[1]:
+                return valid_pos
             
     def in_check(self):
-        """
-        Checks whether the king of the current player is in check
-        
-        Args:
-            None
-            
-        Returns (bool):
-            Whether the current player is in check
-        """
-        attacked_squares = []
+        position = self.get_king_pos()
+        directions = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
+        for k in range(len(directions)):
+            direction = directions[k]
+            for tile in range(1, 13):
+                end_position = self.getmove(position, direction[0] * tile, direction[1] * tile)
+                if self.is_on_board(end_position):
+                    piece = self.check_for_piece(end_position)
+                    if piece != None:
+                        if self.players[self.current_player].get_color() not in piece.get_allied_colors():
+                            if 0 <= k <= 3 and piece.get_piece_name() == "R" or \
+                                4 <= k <= 7 and piece.get_piece_name() == "B" or \
+                                tile == 1 and piece.get_piece_name() == "P" and piece.direction is (-direction[0], -direction[1]) or\
+                                    piece.get_piece_name() == "Q":
+                                        return [end_position, position, direction, piece.get_piece_name()]
+                        else:
+                            break
+        return None
+                
+                
+    def get_king_pos(self):
         for pos in self.piece_locations.keys():
-            piece = self.piece_locations.get(pos)
-            if not self.players[self.current_player].get_color() in piece.get_allied_colors():
-                attacked_squares = piece.get_legal_moves(self, attacked_squares, pos)
-                #gets all the squares that are not available for the king
-        for move in attacked_squares:
-            if self.check_for_piece(move.get_end_position()) != None:
-                #if king is at one of the attacked squares he is in check
-                if self.check_for_piece(move.get_end_position()).get_piece_name() == 'K' and \
-                    self.check_for_piece(move.get_end_position()).get_color() == self.players[self.current_player].get_color():
-                    return True
-        return False
+            piece = self.piece_locations[pos]
+            if piece.get_color() == self.players[self.current_player].get_color() and piece.get_piece_name() == 'K':
+                return pos
     
     def switch_players(self):
         """
@@ -926,10 +923,7 @@ class FourPlayerChess(object):
         while(not game_finished):
             self.board.show_board()
             if isinstance(self.board.get_current_player(), RandomComputerPlayer):
-                start_time = time.time()
                 self.AI_move()
-                end_time = time.time() - start_time
-                print("Execution time: ", end_time)
                 game_finished = self.round_handler()
             elif len(selected_tiles) == 2:
                 selected_tiles = self.player_move(selected_tiles)
@@ -957,8 +951,12 @@ class FourPlayerChess(object):
         return game_finished
     
     def AI_move(self):
+        start_time = time.time()
         self.board.get_moves()
         self.board.make_move(self.board.get_current_player().play(self.board.legal_moves, self.board))
+        end_time = time.time() - start_time
+        print("Execution time: ", end_time)
+        print("Complexity: ", self.board.get_current_player().complexity)
                 
     def player_move(self, selected_squares):
         move = Move(selected_squares[0], selected_squares[1])
