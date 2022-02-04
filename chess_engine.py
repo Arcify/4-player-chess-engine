@@ -131,6 +131,7 @@ class RandomComputerPlayer(Player):
         elif self.algorithm == "2":
             self.alpha_beta(board, 3, 3, float('-inf'), float('inf'))
             return self.best_move
+        #because second parameter of randint is exclusive
     
     def alpha_beta(self, board, depth, initial_depth, alpha, beta):
         self.complexity += 1
