@@ -152,8 +152,44 @@ class RandomComputerPlayer(Player):
                 alpha = best_score
             if alpha >= beta:
                 break
-            
         return best_score
+    
+    def alpha_beta2(self, board, depth, initial_depth, alpha, beta):
+        self.complexity += 1
+        if depth == 0:
+            return board.score()
+        
+        board.get_moves()
+        if board.legal_moves == None:
+            return board.score()
+        
+        if board.get_current_player().get_color() == "red" or board.get_current_player().get_color() == "yellow": #maximizer
+            max_score = float('-inf')
+            for move in board.legal_moves:
+                score = self.alpha_beta2(board.simulate(move), depth - 1, initial_depth, alpha, beta)
+                if score > max_score:
+                    max_value = score
+                    if depth == initial_depth:
+                        self.best_move = move
+                if max_value > alpha:
+                    alpha = max_value
+                if alpha >= beta:
+                    break
+            return max_value
+        else: #minimzer
+            min_score = float('inf')
+            for move in board.legal_moves:
+                score = self.alpha_beta2(board.simulate(move), depth - 1, initial_depth, alpha, beta)
+                if score < min_score:
+                    min_value = score
+                    if depth == initial_depth:
+                        self.best_move = move
+                if min_value < beta:
+                    beta = min_value
+                if beta <= alpha:
+                    break
+            return min_value
+        
         
 class Board():
     """
@@ -161,7 +197,7 @@ class Board():
     has methods to perform actions on the board.
     """
     
-    def __init__(self, dimension, players, locations):
+    def __init__(self, dimension, players, locations, current_player):
         """
         Initializes the board of the game.
         
@@ -176,7 +212,7 @@ class Board():
         self.piece_locations = locations #storing the piece locations as a hashmap
         self.legal_moves = []
         self.players = players
-        self.current_player = 0 #red always plays the first move
+        self.current_player = current_player #red always plays the first move
         
     def get_current_player(self):
         return self.players[self.current_player]
@@ -391,7 +427,7 @@ class Board():
         return score
             
     def simulate(self, move):
-        new_board = Board(14, self.players, deepcopy(self.piece_locations))
+        new_board = Board(14, self.players, deepcopy(self.piece_locations), self.current_player)
         new_board.make_move(move)
         new_board.switch_players()
         return new_board
@@ -901,7 +937,7 @@ class FourPlayerChess(object):
         else:
             players = [HumanPlayer("red"), HumanPlayer("blue"), HumanPlayer("yellow"),
             HumanPlayer("green")]
-        self.board = Board(14, players, {})
+        self.board = Board(14, players, {}, 0)
         players[0].initialize_pieces((12, 14), (3, 11), "red", "redyellow", (-1, 0), (-1, -1), (-1, 1), self.board)
         players[1].initialize_pieces((3, 11), (0, 2), "blue", "bluegreen", (0, 1), (-1, 1), (1, 1), self.board)
         players[2].initialize_pieces((0, 2), (3, 11), "yellow", "redyellow", (1, 0), (1, 1), (1, -1), self.board)
