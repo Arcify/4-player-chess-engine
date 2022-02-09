@@ -5,7 +5,6 @@
 import random
 import pygame as p
 import time
-from copy import deepcopy
 
 class Player(object):
     """
@@ -115,7 +114,7 @@ class RandomComputerPlayer(Player):
         self.best_move = None
         self.complexity = 0
         
-    def play(self, moves, board):
+    def play(self, board):
         """
         Randomly generates a legal move
         
@@ -127,11 +126,14 @@ class RandomComputerPlayer(Player):
         """
         if self.algorithm == "1":
             print("----Generating random move for " + self.color + "-----")
+            moves = board.get_moves()
             return moves[random.randint(0, len(moves)-1)]
         elif self.algorithm == "2":
-            self.alpha_beta(board, 3, 3, float('-inf'), float('inf'))
+            start_time = time.time()
+            self.alpha_beta(board, 2, 2, float('-inf'), float('inf'))
+            end_time = time.time() - start_time
+            print("Execution time: ", end_time)
             return self.best_move
-        #because second parameter of randint is exclusive
     
     def alpha_beta(self, board, depth, initial_depth, alpha, beta):
         self.complexity += 1
@@ -427,7 +429,8 @@ class Board():
         return score
             
     def simulate(self, move):
-        new_board = Board(14, self.players, deepcopy(self.piece_locations), self.current_player)
+        new_board = Board(14, self.players, self.piece_locations.copy(), self.current_player)
+        #not sure if doing a shallow copy will cause problems later on
         new_board.make_move(move)
         new_board.switch_players()
         return new_board
@@ -987,12 +990,8 @@ class FourPlayerChess(object):
         return game_finished
     
     def AI_move(self):
-        start_time = time.time()
-        self.board.get_moves()
-        self.board.make_move(self.board.get_current_player().play(self.board.legal_moves, self.board))
-        end_time = time.time() - start_time
-        print("Execution time: ", end_time)
-        print("Complexity: ", self.board.get_current_player().complexity)
+        self.board.make_move(self.board.get_current_player().play(self.board))
+        #print("Complexity: ", self.board.get_current_player().complexity)
                 
     def player_move(self, selected_squares):
         move = Move(selected_squares[0], selected_squares[1])
