@@ -1,4 +1,4 @@
-# chess-engine
+# chess-engine (in progress)
 Compact hash-table based implementation of four-player-chess using pygame
 
 Modules needed:
@@ -9,10 +9,17 @@ Modules needed:
 
 **The images needed to display the pieces can be found in the respository and have to be placed in the same folder as chess_engine.py**
 
-This project has only been partially finished. Future improvements that will be made are:
+TODO/CONTRIBUTING:
 
-* Fixing errors in in_check() function
+* Implement more ways to avoid a check in the in_check() function (e.g. capturing the checking piece)
 
-* Making the computer player implement Monte Carlo tree search and a convolutional neural network based approach
+* Implement the Monte Carlo tree search algorithm
+
+* Implement a neural network to create position tables
+
+* More work needs to be done to improve the overall time-complexity of the chess engine
 
 * Many UI improvements
+
+## Disclaimer
+This project is created to get a better understanding of game AI algorithms, and is **NOT** meant to be used for cheating purposes.
