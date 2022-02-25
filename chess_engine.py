@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@Author: Robin Fettelaar
+@Author: Arcify
 """
 import random
 import pygame as p
@@ -130,7 +130,7 @@ class RandomComputerPlayer(Player):
             return moves[random.randint(0, len(moves)-1)]
         elif self.algorithm == "2":
             start_time = time.time()
-            self.alpha_beta(board, 2, 2, float('-inf'), float('inf'))
+            self.alpha_beta(board, 4, 4, float('-inf'), float('inf'))
             end_time = time.time() - start_time
             print("Execution time: ", end_time)
             return self.best_move
@@ -155,43 +155,20 @@ class RandomComputerPlayer(Player):
             if alpha >= beta:
                 break
         return best_score
-    
-    def alpha_beta2(self, board, depth, initial_depth, alpha, beta):
-        self.complexity += 1
-        if depth == 0:
-            return board.score()
-        
-        board.get_moves()
-        if board.legal_moves == None:
-            return board.score()
-        
-        if board.get_current_player().get_color() == "red" or board.get_current_player().get_color() == "yellow": #maximizer
-            max_score = float('-inf')
-            for move in board.legal_moves:
-                score = self.alpha_beta2(board.simulate(move), depth - 1, initial_depth, alpha, beta)
-                if score > max_score:
-                    max_value = score
-                    if depth == initial_depth:
-                        self.best_move = move
-                if max_value > alpha:
-                    alpha = max_value
-                if alpha >= beta:
-                    break
-            return max_value
-        else: #minimzer
-            min_score = float('inf')
-            for move in board.legal_moves:
-                score = self.alpha_beta2(board.simulate(move), depth - 1, initial_depth, alpha, beta)
-                if score < min_score:
-                    min_value = score
-                    if depth == initial_depth:
-                        self.best_move = move
-                if min_value < beta:
-                    beta = min_value
-                if beta <= alpha:
-                    break
-            return min_value
-        
+
+    def monte_carlo(self, board):
+        pass
+
+    def selection(self, board):
+        best_value = float('-inf')
+        child_selected = None
+        for move in board.legal_moves:
+            child = board.simulate(move)
+            value = child.score()
+            if value > best_value:
+                best_value = value
+                child_selected = child
+        return child_selected
         
 class Board():
     """
