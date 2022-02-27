@@ -5,6 +5,7 @@
 import random
 import pygame as p
 import time
+import numpy as np
 
 class Player(object):
     """
@@ -134,6 +135,8 @@ class RandomComputerPlayer(Player):
             end_time = time.time() - start_time
             print("Execution time: ", end_time)
             return self.best_move
+        elif self.algorithm == "3":
+            return self.monte_carlo(board)
     
     def alpha_beta(self, board, depth, initial_depth, alpha, beta):
         self.complexity += 1
@@ -157,18 +160,67 @@ class RandomComputerPlayer(Player):
         return best_score
 
     def monte_carlo(self, board):
-        pass
+        root = Node(board)
+        nr_iter = 100
+        for i in range(nr_iter):
+            node = self.selection(root)
+            expanded_node = self.expansion(node)
+            reward, node = self.rollout(expanded_node)
+            root = self.backpropogation(node, reward)
 
-    def selection(self, board):
-        best_value = float('-inf')
+        return board.legal_moves[np.argmax([node.v for node in root.children])]
+
+    def selection(self, node):
+        max_expl_scr = float('-inf')
         child_selected = None
-        for move in board.legal_moves:
-            child = board.simulate(move)
-            value = child.score()
-            if value > best_value:
-                best_value = value
+        for child in node.children:
+            expl_scr = self.explore_score(child)
+            if expl_scr > max_expl_scr:
+                max_expl_scr = expl_scr
                 child_selected = child
         return child_selected
+
+    def expansion(self, node):
+        if node.children.empty():
+            return node
+        max_expl_scr = float('-inf')
+        child_selected = None
+        for child in node.children:
+            expl_scr = self.explore_score(child)
+            if expl_scr > max_expl_scr:
+                max_expl_scr = expl_scr
+                child_selected = child
+        return self.expansion(child_selected)
+
+    def rollout(self, node):
+        if node.game_over():
+            if node.won():
+                return (1, node)
+            elif node.lose():
+                return (-1, node)
+            else:
+                return (0.5, node)
+        node.children = [node.board.simulate(move) for move in node.board.legal_moves]
+        random_child = random.choice(node.children)
+        return self.rollout(random_child)
+
+    def backpropogation(self, node, reward):
+        while node.parent is not None:
+            node.v += reward
+            node = node.parent
+        return node
+
+    def explore_score(self, node):
+        return node.v + 2 * (np.sqrt(np.log(node.N + np.e + (np.pow(10, -6)))/(node.n + (np.pow(10, -10)))))
+
+class Node():
+    def __init__(self, board):
+        self.state = board
+        self.children = set()
+        self.parent = None
+        self.N = 0
+        self.n = 0
+        self.v = 0
         
 class Board():
     """
@@ -603,7 +655,7 @@ class Piece(object):
         """
         return " " + self.piece_name + " "
             
-    def get_legal_moves():
+    def get_legal_moves(self):
         """
         Interface method to get all possible moves for a certain piece
         """
