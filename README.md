@@ -23,3 +23,8 @@ TODO/CONTRIBUTING:
 
 ## Disclaimer
 This project is created to get a better understanding of game AI algorithms, and is **NOT** meant to be used for cheating purposes.
+
+## Credits
+Inspiration has been taken from the following sources:
+- https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_
+- https://www.chessprogramming.org/Main_Page
