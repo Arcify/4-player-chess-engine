@@ -126,7 +126,7 @@ class RandomComputerPlayer(Player):
         Randomly generates a legal move
         
         Args:
-            moves (arr): The array of possible moves
+            board: the chess board
             
         Returns:
             (str): The name of the generated move
@@ -137,7 +137,7 @@ class RandomComputerPlayer(Player):
             return moves[random.randint(0, len(moves) - 1)]
         elif self.algorithm == "2":
             start_time = time.time()
-            self.alpha_beta(board, 4, 4, float('-inf'), float('inf'))
+            self.alpha_beta(board, 3, 3, float('-inf'), float('inf'))
             end_time = time.time() - start_time
             print("Execution time: ", end_time)
             return self.best_move
@@ -247,7 +247,10 @@ class Board():
         Initializes the board of the game.
         
         Args:
-            pieces (arr): The array of pieces that are present on the board
+            dimension: the area of the board
+            players: the 4 players playing the game
+            locations: the locations of the pieces
+            current_player: the player that has to make the next move
             
         Returns:
             None
@@ -266,8 +269,7 @@ class Board():
         """
         Returns the board formatted as a string.
         
-        Args:
-            None
+        Args: None
         
         Returns:
             board (str): The board represented by letters, dashes, asterisks and numbers
@@ -333,9 +335,9 @@ class Board():
         Returns (bool):
             Whether or not the position is located on the chess board
         """
-        if (((position.get_x() >= 3 and position.get_x() <= 10) and (0 <= position.get_y() <= 13)) or \
-                (0 <= position.get_x() < 3 and 3 <= position.get_y() <= 10) or \
-                (10 < position.get_x() <= 13 and 3 <= position.get_y() <= 10)):
+        if (((3 <= position.get_x() <= 10) and (0 <= position.get_y() <= 13)) or
+                (0 <= position.get_x() < 3 <= position.get_y() <= 10) or
+                (13 >= position.get_x() > 10 >= position.get_y() >= 3)):
             return True
         else:
             return False
@@ -347,7 +349,7 @@ class Board():
         
         Args:
             xm (int): The x direction
-            xy (int): The y direction
+            ym (int): The y direction
             
         Returns (Pos):
             The new position
@@ -355,7 +357,7 @@ class Board():
         new_x = position.x + xm
         new_y = position.y + ym
         return Position(new_x, new_y)
-        # new position because we dont want to change the position of the piece
+        # new position because we do not want to change the position of the piece
 
     def make_move(self, move):
         """
@@ -389,61 +391,117 @@ class Board():
         orig_pos = Position(move.start_position.get_x(), move.start_position.get_y())
         # start position of move is the initial position of the piece before moving
         self.piece_locations[orig_pos] = self.piece_locations.pop(move.get_end_position())
-        if removed_piece != None:
+        if removed_piece is not None:
             self.piece_locations[target_pos] = removed_piece
 
     def get_moves(self):
         """
         Iterates through all the pieces and adds for each piece the possible moves
         to the list
-        
-        Args:
-            None
+
+        Args: None
             
-        Returns:
-            None
+        Returns: None
         """
-        check = self.in_check()
+        in_check, pin_info, check_info = self.check_info()
         for pos in self.piece_locations.keys():
             if self.piece_locations[pos].get_color() == self.players[self.current_player].get_color():
-                if check is not None:
-                    self.legal_moves = self.block_check(check)
+                if in_check:
+                    if len(check_info) == 1:
+                        if self.piece_locations[check_info[0][0]].get_piece_name() == "N":
+                            self.legal_moves.append(Move(pos, check_info[0][0]))
+                        else:
+                            poss_positions = self.block_or_capture(check_info)
+                            self.legal_moves = self.piece_locations[pos].get_legal_moves(self, self.legal_moves, pos, poss_positions = poss_positions)
+                    elif self.piece_locations[pos].get_piece_name() == "K":
+                        self.legal_moves = self.piece_locations[pos].get_legal_moves(self, self.legal_moves, pos)
                 else:
-                    self.legal_moves = self.piece_locations[pos].get_legal_moves(self, self.legal_moves, pos)
+                    self.legal_moves = self.piece_locations[pos].get_legal_moves(self, self.legal_moves, pos, pin_info = pos in pin_info)
+                    # king can walk into checks, need to fix this!
+        return self.legal_moves
 
-    def block_check(self, check):
-        valid_pos = []
+    def block_or_capture(self, check_info):
+        possible_positions = []
         for tiles in range(1, 13):
-            square = Position(check[1].get_x() + check[2][0] * tiles, check[1].get_y() + check[2][1] * tiles)
-            valid_pos.append(square)
-            if (square.get_x(), square.get_y()) == check[1]:
-                return valid_pos
+            square = Position(self.get_king_pos().get_x() + check_info[0][1][0] * tiles, self.get_king_pos().get_y() + check_info[0][1][1] * tiles)
+            possible_positions.append(square)
+            if square == check_info[0][0]:
+                return possible_positions
 
-    def in_check(self):
+    def check_info(self):
+        """
+        returns which enemy pieces are checking the king and which friendly pieces are blocking checks (pins)
+
+        Args: None
+
+        Returns: (tuple): whether the king is in check, which pieces are pinned and which pieces are delivering the check
+
+        Credits: This function has been inspired from Eddie Sharicks' youtube tutorial which can be found here:
+        https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_
+                """
+        in_check = False
+        check_info = []
+        pin_info = []
         position = self.get_king_pos()
         directions = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
         for k in range(len(directions)):
             direction = directions[k]
+            possible_pin = ()
             for tile in range(1, 13):
                 end_position = self.getmove(position, direction[0] * tile, direction[1] * tile)
                 if self.is_on_board(end_position):
                     piece = self.check_for_piece(end_position)
                     if piece is not None:
-                        if self.players[self.current_player].get_color() not in piece.get_allied_colors():
-                            if 0 <= k <= 3 and piece.get_piece_name() == "R" or \
-                                    4 <= k <= 7 and piece.get_piece_name() == "B" or \
-                                    tile == 1 and piece.get_piece_name() == "P" and piece.direction is (
-                                    -direction[0], -direction[1]) or \
-                                    piece.get_piece_name() == "Q":
-                                return [end_position, position, direction, piece.get_piece_name()]
-                        else:
-                            break
-        return None
+                        if self.get_current_player().get_color() in piece.get_allied_colors():
+                            if possible_pin == ():
+                                possible_pin = (end_position, direction)
+                            else:
+                                break
+                        elif self.get_current_player().get_color() not in piece.get_allied_colors():
+                            if self.possible_check(k, tile, piece, direction):
+                                if possible_pin == ():
+                                    in_check = True
+                                    check_info.append((end_position, direction))
+                                    break
+                                else:
+                                    pin_info.append(possible_pin[0])
+                                    break
+                            else:
+                                break
+                else:
+                    break
+        knight_moves = ((-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1))
+        for m in knight_moves:
+            end_pos = self.getmove(position, m[0], m[1])
+            if self.is_on_board(end_pos):
+                poss_piece = self.check_for_piece(end_pos)
+                if poss_piece is not None:
+                    if self.get_current_player().get_color() not in poss_piece.get_allied_colors():
+                        if poss_piece.get_piece_name() == "N":
+                            in_check = True
+                            check_info.append((end_pos, m))
+        return in_check, pin_info, check_info
+
+    def possible_check(self, k, tile, piece, direction):
+        if 0 <= k <= 3 and piece.get_piece_name() == "R":
+            return True
+        elif 4 <= k <= 7 and piece.get_piece_name() == "B":
+            return True
+        elif tile == 1 and piece.get_piece_name() == "P":
+            if piece.diag_left_direction == (-direction[0], -direction[1]) or \
+                    (piece.diag_right_direction == (-direction[0], -direction[1])):
+                return True
+        elif piece.get_piece_name() == "Q":
+            return True
+        elif tile == 1 and piece.get_piece_name() == "K":
+            return True
+        else:
+            return False
 
     def get_king_pos(self):
         for pos in self.piece_locations.keys():
             piece = self.piece_locations[pos]
-            if piece.get_color() == self.players[self.current_player].get_color() and piece.get_piece_name() == 'K':
+            if piece.get_color() == self.get_current_player().get_color() and piece.get_piece_name() == 'K':
                 return pos
 
     def switch_players(self):
@@ -480,7 +538,7 @@ class Board():
 
     def is_game_over(self):
         game_finished = False
-        check = True if self.in_check() else False
+        check, pin_info, check_info = self.check_info()
         if self.legal_moves is None or len(self.legal_moves) == 0:
             if check:
                 print(str(self.current_player) + " got checkmated!")
@@ -761,7 +819,7 @@ class Pawn(Piece):
         self.diag_right_direction = diag_right_direction
         self.start_position = start_position
 
-    def get_legal_moves(self, board, moves, position):
+    def get_legal_moves(self, board, moves, position, poss_positions = None, pin_info = False):
         """
         Adds all the possible pawn moves following the rules of chess to the possible move
         list not yet including checks.
@@ -783,19 +841,23 @@ class Pawn(Piece):
         # when the pawn can capture a piece diagonal to the right
         if board.is_on_board(end_position):
             if board.check_for_piece(end_position) == None:  # no piece infront of pawn
-                moves.append(Move(position, end_position))
+                if (poss_positions is None or end_position in poss_positions) and not pin_info:
+                    moves.append(Move(position, end_position))
                 if (self.start_position == position) and \
-                        board.check_for_piece(end_position_two_squares) == None:
-                    # no piece in either of two squares infront of pawn
-                    moves.append(Move(position, end_position_two_squares))
-            if board.check_for_piece(end_position_diag_left) != None:
+                        board.check_for_piece(end_position_two_squares) is None:
+                    # no piece in either of two squares in front of pawn
+                    if (poss_positions is None or end_position_two_squares in poss_positions) and not pin_info:
+                        moves.append(Move(position, end_position_two_squares))
+            if board.check_for_piece(end_position_diag_left) is not None:
                 if board.check_for_piece(end_position_diag_left).get_color() not in self.allied_colors:
                     # enemy piece diagonal to the left
-                    moves.append(Move(position, end_position_diag_left))
-            if board.check_for_piece(end_position_diag_right) != None:
+                    if (poss_positions is None or end_position_diag_left in poss_positions) and not pin_info:
+                        moves.append(Move(position, end_position_diag_left))
+            if board.check_for_piece(end_position_diag_right) is not None:
                 if board.check_for_piece(end_position_diag_right).get_color() not in self.allied_colors:
                     # enemy piece diagonal to the right
-                    moves.append(Move(position, end_position_diag_right))
+                    if (poss_positions is None or end_position_diag_right in poss_positions) and not pin_info:
+                        moves.append(Move(position, end_position_diag_right))
         return moves
 
     def get_score(self):
@@ -807,7 +869,7 @@ class Knight(Piece):
     The class for the Knight piece.
     """
 
-    def get_legal_moves(self, board, moves, position):
+    def get_legal_moves(self, board, moves, position, poss_positions = None, pin_info = False):
         """
         Adds all the possible knight moves following the rules of chess to the possible move
         list not yet including checks.
@@ -823,13 +885,14 @@ class Knight(Piece):
         # all possible knight moves
         for direction in directions:
             end_position = board.getmove(position, direction[0], direction[1])
-            if board.is_on_board(end_position):
-                if board.check_for_piece(end_position) == None:  # no piece on end position
-                    moves.append(Move(position, end_position))
-                else:
-                    if board.check_for_piece(end_position).get_color() not in self.allied_colors:
-                        # enemy piece on end position
+            if (poss_positions is None or end_position in poss_positions) and not pin_info:
+                if board.is_on_board(end_position):
+                    if board.check_for_piece(end_position) is None:  # no piece on end position
                         moves.append(Move(position, end_position))
+                    else:
+                        if board.check_for_piece(end_position).get_color() not in self.allied_colors:
+                            # enemy piece on end position
+                            moves.append(Move(position, end_position))
 
         return moves
 
@@ -842,7 +905,7 @@ class Bishop(Piece):
     The class for the Bishop piece.
     """
 
-    def get_legal_moves(self, board, moves, position):
+    def get_legal_moves(self, board, moves, position, poss_positions = None, pin_info = False):
         """
         Adds all the possible bishop moves following the rules of chess to the possible move
         list not yet including checks.
@@ -862,11 +925,13 @@ class Bishop(Piece):
                 # position tiles amount diagonal of the bishop
                 if board.is_on_board(end_position):
                     if board.check_for_piece(end_position) == None:
-                        moves.append(Move(position, end_position))
+                        if (poss_positions is None or end_position in poss_positions) and not pin_info:
+                            moves.append(Move(position, end_position))
                     else:
                         if board.check_for_piece(end_position).get_color() not in self.allied_colors:
-                            moves.append(Move(position, end_position))
-                            break  # cant jump over enemy piece but can capture
+                            if (poss_positions is None or end_position in poss_positions) and not pin_info:
+                                moves.append(Move(position, end_position))
+                            break  # can not jump over enemy piece but can capture
                         else:
                             break  # cant jump over allied piece and can't capture
                 else:
@@ -883,7 +948,7 @@ class Rook(Piece):
     The class for the Rook piece.
     """
 
-    def get_legal_moves(self, board, moves, position):
+    def get_legal_moves(self, board, moves, position, poss_positions = None, pin_info = False):
         """
         Adds all the possible rook moves following the rules of chess to the possible move
         list not yet including checks.
@@ -902,11 +967,13 @@ class Rook(Piece):
                 end_position = board.getmove(position, direction[0] * tiles, direction[1] * tiles)
                 # position tiles amount straight of the rook
                 if board.is_on_board(end_position):
-                    if board.check_for_piece(end_position) == None:
-                        moves.append(Move(position, end_position))
+                    if board.check_for_piece(end_position) is None:
+                        if (poss_positions is None or end_position in poss_positions) and not pin_info:
+                            moves.append(Move(position, end_position))
                     else:
                         if board.check_for_piece(end_position).get_color() not in self.allied_colors:
-                            moves.append(Move(position, end_position))
+                            if (poss_positions is None or end_position in poss_positions) and not pin_info:
+                                moves.append(Move(position, end_position))
                             break  # can't jump over enemy piece but can capture
                         else:
                             break  # can't jump over allied piece and can't capture
@@ -924,7 +991,7 @@ class King(Piece):
     The class for the King piece.
     """
 
-    def get_legal_moves(self, board, moves, position):
+    def get_legal_moves(self, board, moves, position, poss_positions = None, pin_info = False):
         """
         Adds all the possible king moves following the rules of chess to the possible move
         list not yet including checks.
@@ -932,6 +999,7 @@ class King(Piece):
         Args:
             board (arr): The chess board 
             moves (arr): The array of all possible moves that the player can play
+            position (Pos):
             
         Returns:
             moves (arr): The array of all possible moves that the player can play
@@ -940,15 +1008,18 @@ class King(Piece):
         # all possible king moves
         for direction in directions:
             end_position = board.getmove(position, direction[0], direction[1])
-            # end positition of a certain direction of the king
-            if board.is_on_board(end_position):
-                if board.check_for_piece(end_position) == None:
-                    moves.append(Move(position, end_position))
-                    # no pieces on position thus can move king to endposition
-                else:
-                    if board.check_for_piece(end_position).get_color() not in self.allied_colors:
-                        # can capture enemy piece thus can move king to endposition
-                        moves.append(Move(position, end_position))
+            if poss_positions is None or end_position in poss_positions:
+                # end position of a certain direction of the king
+                if board.is_on_board(end_position):
+                    in_check, pin_info, check_info = board.simulate(Move(position, end_position)).check_info() #need to fix this
+                    if not in_check:
+                        if board.check_for_piece(end_position) is None:
+                            moves.append(Move(position, end_position))
+                            # no pieces on position thus can move king to end position
+                        else:
+                            if board.check_for_piece(end_position).get_color() not in self.allied_colors:
+                                # can capture enemy piece thus can move king to end position
+                                moves.append(Move(position, end_position))
         return moves
 
     def get_score(self):
@@ -960,7 +1031,7 @@ class Queen(Piece):
     The class for the Queen piece.
     """
 
-    def get_legal_moves(self, board, moves, position):
+    def get_legal_moves(self, board, moves, position, poss_positions = None, pin_info = False):
         """
         Adds all the possible queen moves following the rules of chess to the possible move
         list not yet including checks.
@@ -972,8 +1043,8 @@ class Queen(Piece):
         Returns:
             moves (arr): The array of all possible moves that the player can play
         """
-        Rook.get_legal_moves(self, board, moves, position)
-        Bishop.get_legal_moves(self, board, moves, position)
+        Rook.get_legal_moves(self, board, moves, position, poss_positions, pin_info)
+        Bishop.get_legal_moves(self, board, moves, position, poss_positions, pin_info)
         # because the queen can move in the same directions as the rook and bishop combined
         return moves
 
