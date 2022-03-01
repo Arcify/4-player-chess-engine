@@ -172,16 +172,14 @@ class RandomComputerPlayer(Player):
             expanded_node = self.expansion(root)
             reward, node = self.rollout(expanded_node)
             self.backpropogation(node, reward)
-        for node in root.children:
-            print(node.get_score())
-        return board.legal_moves[np.argmax([node.get_score() for node in root.children])]
+        return board.legal_moves[np.argmax([node.get_score() for node in root.children])] # return move with highest score
 
     def expansion(self, node):
-        if not node.children:
+        if not node.children: # when there are no known child nodes, we want to choose this node
             return node
         max_expl_scr = float('-inf')
         child_selected = None
-        for child in node.children:
+        for child in node.children: # give each child node a UCB (exploration) score and choose the highest scoring child
             expl_scr = self.explore_score(child)
             if expl_scr > max_expl_scr:
                 max_expl_scr = expl_scr
@@ -197,33 +195,36 @@ class RandomComputerPlayer(Player):
             #     return (-1, node)
             # else:
             #     return (0.5, node)
-            return (node.board.current_player, node)
+            return (node.board.current_player, node) # the code is written such that the game always finishes at the losing player
+                                                     # thus we return the player that loses together with the state (node)
         node.children = [Node(node.board.simulate(move), parent=node) for move in node.board.legal_moves]
+        # all possible moves from the 'node' are simulated and added as child nodes (this could be wrong)
         random_child = random.choice(node.children)
+        # we randomly pick one of the possible child nodes and keep going until the game is over
         return self.rollout(random_child)
 
-    def backpropogation(self, node, reward):
-        if self.color in "redyellow" and reward == 1 or reward == 3:
-            act_reward = 1
-        elif self.color in "bluegreen" and reward == 0 or reward == 2:
-            act_reward = 1
-        else:
-            act_reward = -1
+    def backpropogation(self, node, losing_player):
+        if self.color in "redyellow" and losing_player == 1 or losing_player == 3:
+            reward = 1 # when the player that loses is either 1 (blue) or 3 (green) and the current player is red or yellow, we win
+        elif self.color in "bluegreen" and losing_player == 0 or losing_player == 2:
+            reward = 1 # when the player that loses is either 0 (red) or 2 (yellow) and the current player is blue or green. we also win
+        else: # if either is not the case, the player that called the function lost
+            reward = -1
 
-        while node.parent is not None:
-            if act_reward == -1:
+        while node.parent is not None: # pass the reward up to all nodes that led to this outcome
+            if reward == -1:
                 node.loses += 1
-            if act_reward == 1:
+            if reward == 1:
                 node.wins += 1
             node.visits += 1
             node = node.parent
 
-    def explore_score(self, node):
+    def explore_score(self, node): #UCB (upper confident bound) score to calculate whether to exlore or a certain node
         score = node.get_score()
         return score + 2 * (np.sqrt(np.log(node.parent.visits + np.e + (10**-6))/(score + (10**-10))))
 
 
-class Node():
+class Node(): #node used in the MCTS algorithm, storing the board, children, parent, wins, loses and visits
     def __init__(self, board, parent=None):
         self.board = board
         self.children = []
@@ -232,7 +233,7 @@ class Node():
         self.loses = 0
         self.visits = 0
 
-    def get_score(self):
+    def get_score(self): #score used to calculate which child node of the root node leads to the best results
         return self.wins - self.loses
 
 
