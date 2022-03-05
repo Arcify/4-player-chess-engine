@@ -6,21 +6,22 @@ import random
 import pygame as p
 import time
 import numpy as np
+import copy
 
 
 class Player(object):
     """
-    The interface class for a player. It sets the name and color of a player, 
+    The interface class for a player. It sets the name and color of a player,
     initializes the pieces and gets the move the player wants to play each round.
     """
 
     def __init__(self, color):
         """
         Initializes a player.
-        
+
         Args:
             color (str): the color that is used by the player
-        
+
         Returns:
             None
         """
@@ -29,10 +30,10 @@ class Player(object):
     def get_color(self):
         """
         Returns the color of the player.
-        
+
         Args:
             None
-            
+
         Returns:
             color (str): The color of the player
         """
@@ -96,10 +97,10 @@ class HumanPlayer(Player):
     def play(self, moves):
         """
         Asks which move the player wants to play and returns it.
-        
+
         Args:
             moves (arr): The array of possible moves
-        
+
         Returns:
             (str): The move played
         """
@@ -136,7 +137,7 @@ class RandomComputerPlayer(Player):
             return board.legal_moves[random.randint(0, len(board.legal_moves) - 1)]
         elif self.algorithm == "2":
             start_time = time.time()
-            self.alpha_beta(board, 4, 4, float('-inf'), float('inf'))
+            self.alpha_beta(board, 1, 1, float('-inf'), float('inf'))
             end_time = time.time() - start_time
             print("Execution time: ", end_time)
             return self.best_move
@@ -167,48 +168,40 @@ class RandomComputerPlayer(Player):
         root = Node(board)
         nr_iter = 100
         for i in range(nr_iter):
-            expanded_node = self.expansion(root)
-            reward, node = self.rollout(expanded_node)
-            self.backpropogation(node, reward)
-        return board.legal_moves[np.argmax([node.get_score() for node in root.children])] # return move with highest score
+            expanded_node = self.selection(root)
+            reward = self.rollout(expanded_node)
+            self.backpropogation(reward, expanded_node)
+        return root.children[np.argmax([child.get_score() for child in root.children])].parent_action # return move with highest score
+
+    def selection(self, node):
+        current_node = node
+        while not current_node.board.is_game_over():
+            if not len(current_node.untried_actions) == 0:
+                return self.expansion(current_node)
+            else:
+                current_node = current_node.children[np.argmax([self.explore_score(child) for child in current_node.children])]
+        return current_node
 
     def expansion(self, node):
-        if not node.children: # when there are no known child nodes, we want to choose this node
-            return node
-        max_expl_scr = float('-inf')
-        child_selected = None
-        for child in node.children: # give each child node a UCB (exploration) score and choose the highest scoring child
-            expl_scr = self.explore_score(child)
-            if expl_scr > max_expl_scr:
-                max_expl_scr = expl_scr
-                child_selected = child
-        return self.expansion(child_selected)
+        action = node.untried_actions.pop()
+        child_node = Node(node.board.simulate(action), parent=node, action=action)
+        node.children.append(child_node)
+        return child_node
 
     def rollout(self, node):
-        node.board.get_moves()
-        if node.board.is_game_over():
-            # if node.won():
-            #     return (1, node)
-            # elif node.lose():
-            #     return (-1, node)
-            # else:
-            #     return (0.5, node)
-            return (node.board.current_player, node) # the code is written such that the game always finishes at the losing player
-                                                     # thus we return the player that loses together with the state (node)
-        node.children = [Node(node.board.simulate(move), parent=node) for move in node.board.legal_moves]
-        # all possible moves from the 'node' are simulated and added as child nodes (this could be wrong)
-        random_child = random.choice(node.children)
-        # we randomly pick one of the possible child nodes and keep going until the game is over
-        return self.rollout(random_child)
+        current_node = node
+        iter = 0
+        while not current_node.board.is_game_over():
+            #current_node.board.show_board()
+            if iter == 100:
+                print(current_node.board.score())
+                return self.result(current_node, iter)
+            action = random.choice(current_node.board.legal_moves)
+            current_node = Node(current_node.board.simulate(action))
+            iter += 1
+        return self.result(current_node, iter)
 
-    def backpropogation(self, node, losing_player):
-        if self.color in "redyellow" and losing_player == 1 or losing_player == 3:
-            reward = 1 # when the player that loses is either 1 (blue) or 3 (green) and the current player is red or yellow, we win
-        elif self.color in "bluegreen" and losing_player == 0 or losing_player == 2:
-            reward = 1 # when the player that loses is either 0 (red) or 2 (yellow) and the current player is blue or green. we also win
-        else: # if either is not the case, the player that called the function lost
-            reward = -1
-
+    def backpropogation(self, reward, node):
         while node.parent is not None: # pass the reward up to all nodes that led to this outcome
             if reward == -1:
                 node.loses += 1
@@ -221,15 +214,26 @@ class RandomComputerPlayer(Player):
         score = node.get_score()
         return score + 2 * (np.sqrt(np.log(node.parent.visits + np.e + (10**-6))/(score + (10**-10))))
 
+    def result(self, node, iteration):
+        plr = 1 if iteration % 2 != 0 else -1
+        if node.board.is_game_over():
+            return plr * 1
+        else:
+            if node.board.score() > 0:
+                return plr * -1
+            else:
+                return plr * 1
 
 class Node(): #node used in the MCTS algorithm, storing the board, children, parent, wins, loses and visits
-    def __init__(self, board, parent=None):
+    def __init__(self, board, parent=None, action=None):
         self.board = board
         self.children = []
         self.parent = parent
         self.wins = 0
         self.loses = 0
         self.visits = 0
+        self.untried_actions = copy.deepcopy(board.legal_moves)
+        self.parent_action = action
 
     def get_score(self): #score used to calculate which child node of the root node leads to the best results
         return self.wins - self.loses
@@ -244,13 +248,13 @@ class Board():
     def __init__(self, dimension, players, locations, current_player):
         """
         Initializes the board of the game.
-        
+
         Args:
             dimension: the area of the board
             players: the 4 players playing the game
             locations: the locations of the pieces
             current_player: the player that has to make the next move
-            
+
         Returns:
             None
         """
@@ -267,9 +271,9 @@ class Board():
     def show_board(self):
         """
         Returns the board formatted as a string.
-        
+
         Args: None
-        
+
         Returns:
             board (str): The board represented by letters, dashes, asterisks and numbers
         """
@@ -298,10 +302,10 @@ class Board():
         """
         Checks whether there are any pieces on the specified position
         and removes the piece if there is.
-        
+
         Args:
             position (Pos): The specified position that has to be checked
-        
+
         Returns:
             removed (Piece): the removed piece on the specified position
         """
@@ -315,10 +319,10 @@ class Board():
         """
         Checks whether there are any pieces on a specified position and returns
         the piece if there is.
-        
+
         Args:
             position(Pos): The specified position that has to be checked
-            
+
         Returns:
             piece (Piece): the piece on the specified position
         """
@@ -327,10 +331,10 @@ class Board():
     def is_on_board(self, position):
         """
         Checks whether the specified position is located on the chess board.
-        
+
         Args:
             position (Pos): The specified position
-            
+
         Returns (bool):
             Whether or not the position is located on the chess board
         """
@@ -345,11 +349,11 @@ class Board():
         """
         Returns a new position derived from the current position and a direction
         existing of an x direction and a y direction.
-        
+
         Args:
             xm (int): The x direction
             ym (int): The y direction
-            
+
         Returns (Pos):
             The new position
         """
@@ -360,13 +364,13 @@ class Board():
 
     def make_move(self, move):
         """
-        Moves a piece from a start position to an end position and removes 
+        Moves a piece from a start position to an end position and removes
         the piece located at the end position.
-        
+
         Args:
             move (Move): The move that is carried out
-            
-        Returns: 
+
+        Returns:
             removed_piece (Piece): The piece that is removed
         """
         removed_piece = self.remove_piece(move.get_end_position())
@@ -378,11 +382,11 @@ class Board():
         """
         Moves a piece from an end position to a start position and puts the piece
         that has been removed back into place
-        
+
         Args:
             move (Move): The move that was carried out
             removed_piece (Piece): The piece that was removed
-            
+
         Returns:
             None
         """
@@ -399,14 +403,16 @@ class Board():
         to the list
 
         Args: None
-            
+
         Returns: None
         """
         in_check, pin_info, check_info = self.check_info()
         for pos in self.piece_locations.keys():
             if self.piece_locations[pos].get_color() == self.players[self.current_player].get_color():
                 if in_check:
-                    if len(check_info) == 1:
+                    if len(check_info) == 0:
+                        return None
+                    elif len(check_info) == 1:
                         if self.piece_locations[check_info[0][0]].get_piece_name() == "N":
                             self.legal_moves.append(Move(pos, check_info[0][0]))
                         else:
@@ -441,6 +447,8 @@ class Board():
         check_info = []
         pin_info = {}
         position = self.get_king_pos()
+        if position is None:
+            return True, pin_info, check_info
         directions = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
         for k in range(len(directions)):
             direction = directions[k]
@@ -505,10 +513,10 @@ class Board():
     def switch_players(self):
         """
         Switches the current player to the player which turn it is next
-        
+
         Args:
             None
-            
+
         Returns:
             None
         """
@@ -544,7 +552,6 @@ class Board():
                 print(str(self.current_player) + " got checkmated!")
             else:
                 print("A stalemate has occurred!")
-            print(":)")
             game_finished = True
         return game_finished
 
@@ -718,12 +725,12 @@ class Piece(object):
         """
         Initializes a piece by setting the position, name, color and allied colors
         of the piece.
-        
+
         Args:
             piece_name (str): The name of piece consisting out of a capital letter
             color (str): The color of the piece
             allied_collors (str): The colors of the current piece and the allied pieces
-            
+
         Returns:
             None
         """
@@ -734,10 +741,10 @@ class Piece(object):
     def __str__(self):
         """
         Returns the name of the piece displayed as the color of the piece
-        
+
         Args:
             None
-            
+
         Returns (str):
             The name of the piece displayed in the color of the piece
         """
@@ -752,10 +759,10 @@ class Piece(object):
     def get_allied_colors(self):
         """
         Returns the allied colors of the piece
-        
+
         Args:
             None
-            
+
         Returns:
             allied_colors (str): The allied colors of the piece
         """
@@ -764,10 +771,10 @@ class Piece(object):
     def get_color(self):
         """
         Returns the color of the piece
-        
+
         Args:
             None
-            
+
         Returns:
             color (str): The color of the piece
         """
@@ -776,10 +783,10 @@ class Piece(object):
     def get_piece_name(self):
         """
         Returns the name of the piece
-        
+
         Args:
             None
-            
+
         Returns:
             piece_name (str): The name of the piece existing out of a capital letter
         """
@@ -791,7 +798,7 @@ class Piece(object):
 
 class Pawn(Piece):
     """
-    The class for the Pawn piece. It sets the position, piece_name, color, 
+    The class for the Pawn piece. It sets the position, piece_name, color,
     direction, diag_left_direction, diag_right_direction, allied_colors and start_position
     of the piece.
     """
@@ -800,7 +807,7 @@ class Pawn(Piece):
                  diag_right_direction, allied_colors, start_position):
         """
         Initializes the pawn.
-        
+
         Args:
             position (Pos): The position of the pawn
             piece_name (str): The name of the piece existing out of a capital letter
@@ -810,7 +817,7 @@ class Pawn(Piece):
             diag_right_direction (tuple): Direction of a pawn when capturing diagonal to the right
             allied_colors (str): The allied colors of the pawn
             start_position (Pos): The initial position of the pawn
-            
+
         Returns:
             None
         """
@@ -824,11 +831,11 @@ class Pawn(Piece):
         """
         Adds all the possible pawn moves following the rules of chess to the possible move
         list not yet including checks.
-        
+
         Args:
-            board (arr): The chess board 
+            board (arr): The chess board
             moves (arr): The array of all possible moves that the player can play
-            
+
         Returns:
             moves (arr): The array of all possible moves that the player can play
         """
@@ -884,11 +891,11 @@ class Knight(Piece):
         """
         Adds all the possible knight moves following the rules of chess to the possible move
         list not yet including checks.
-        
+
         Args:
-            board (arr): The chess board 
+            board (arr): The chess board
             moves (arr): The array of all possible moves that the player can play
-            
+
         Returns:
             moves (arr): The array of all possible moves that the player can play
         """
@@ -920,11 +927,11 @@ class Bishop(Piece):
         """
         Adds all the possible bishop moves following the rules of chess to the possible move
         list not yet including checks.
-        
+
         Args:
-            board (arr): The chess board 
+            board (arr): The chess board
             moves (arr): The array of all possible moves that the player can play
-            
+
         Returns:
             moves (arr): The array of all possible moves that the player can play
         """
@@ -971,11 +978,11 @@ class Rook(Piece):
         """
         Adds all the possible rook moves following the rules of chess to the possible move
         list not yet including checks.
-        
+
         Args:
-            board (arr): The chess board 
+            board (arr): The chess board
             moves (arr): The array of all possible moves that the player can play
-            
+
         Returns:
             moves (arr): The array of all possible moves that the player can play
         """
@@ -1022,12 +1029,12 @@ class King(Piece):
         """
         Adds all the possible king moves following the rules of chess to the possible move
         list not yet including checks.
-        
+
         Args:
-            board (arr): The chess board 
+            board (arr): The chess board
             moves (arr): The array of all possible moves that the player can play
             position (Pos):
-            
+
         Returns:
             moves (arr): The array of all possible moves that the player can play
         """
@@ -1061,11 +1068,11 @@ class Queen(Piece):
         """
         Adds all the possible queen moves following the rules of chess to the possible move
         list not yet including checks.
-        
+
         Args:
-            board (arr): The chess board 
+            board (arr): The chess board
             moves (arr): The array of all possible moves that the player can play
-            
+
         Returns:
             moves (arr): The array of all possible moves that the player can play
         """
@@ -1098,7 +1105,7 @@ class FourPlayerChess(object):
         """
         answer = input("Would you like to play against the computer[y][n] ")
         if answer == 'y':
-            while (True):
+            while True:
                 algorithm = input(
                     "Choose the algorithm to be used: \n1 = Random 2 = Alpha-Beta 3 = MonteCarlo 4 = Neural Network\n")
                 if algorithm in ("1", "2", "3", "4"):
