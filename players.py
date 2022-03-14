@@ -23,6 +23,7 @@ class Player(object):
             None
         """
         self.color = color
+        self.allied_colors = "redyellow" if color in "redyellow" else "bluegreen"
 
     def get_color(self):
         """
@@ -147,11 +148,10 @@ class RandomComputerPlayer(Player):
 
     def monte_carlo(self, board):
         root = Node(board)
-        nr_iter = 100
+        nr_iter = 500
         for i in range(nr_iter):
             expanded_node = self.selection(root)
             reward = self.rollout(expanded_node)
-            print(reward)
             self.backpropogation(reward, expanded_node)
         return self.best_child(root).parent_action  # return move with the highest score
 
@@ -174,13 +174,13 @@ class RandomComputerPlayer(Player):
         current_board = node.board
         iter = 0
         while not current_board.is_game_over():
-            current_board.show_board()
-            if iter == 50:
-                return self.result(current_board, iter)
+            # current_board.show_board()
+            if iter == 10:
+                return self.result(current_board)
             action = random.choice(current_board.legal_moves)
             current_board = current_board.simulate(action)
             iter += 1
-        return self.result(current_board, iter)
+        return self.result(current_board)
 
     def backpropogation(self, reward, node):
         current_node = node
@@ -199,8 +199,8 @@ class RandomComputerPlayer(Player):
         return node.children[np.argmax([(c.get_score() / c.visits) + c_param * np.sqrt((2 * np.log(node.visits) / c.visits))
                                         for c in node.children])]
 
-    def result(self, board, iteration):
-        plr = -1 if iteration % 2 != 0 else 1
+    def result(self, board):
+        plr = 1 if board.get_current_player().get_color() in self.allied_colors else -1
         if board.is_game_over():
             return plr * -1
         else:
