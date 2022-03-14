@@ -151,9 +151,9 @@ class RandomComputerPlayer(Player):
         for i in range(nr_iter):
             expanded_node = self.selection(root)
             reward = self.rollout(expanded_node)
+            print(reward)
             self.backpropogation(reward, expanded_node)
-        return root.children[
-            np.argmax([child.get_score() for child in root.children])].parent_action  # return move with highest score
+        return self.best_child(root).parent_action  # return move with the highest score
 
     def selection(self, node):
         current_node = node
@@ -161,8 +161,7 @@ class RandomComputerPlayer(Player):
             if not len(current_node.untried_actions) == 0:
                 return self.expansion(current_node)
             else:
-                current_node = current_node.children[
-                    np.argmax([self.explore_score(child) for child in current_node.children])]
+                current_node = self.best_child(current_node)
         return current_node
 
     def expansion(self, node):
@@ -172,52 +171,58 @@ class RandomComputerPlayer(Player):
         return child_node
 
     def rollout(self, node):
-        current_node = node
+        current_board = node.board
         iter = 0
-        while not current_node.board.is_game_over():
-            # current_node.board.show_board()
-            if iter == 100:
-                print(current_node.board.score())
-                return self.result(current_node, iter)
-            action = random.choice(current_node.board.legal_moves)
-            current_node = Node(current_node.board.simulate(action))
+        while not current_board.is_game_over():
+            current_board.show_board()
+            if iter == 50:
+                return self.result(current_board, iter)
+            action = random.choice(current_board.legal_moves)
+            current_board = current_board.simulate(action)
             iter += 1
-        return self.result(current_node, iter)
+        return self.result(current_board, iter)
 
     def backpropogation(self, reward, node):
-        while node.parent is not None:  # pass the reward up to all nodes that led to this outcome
+        current_node = node
+        while True:  # pass the reward up to all nodes that led to this outcome
             if reward == -1:
-                node.loses += 1
+                current_node.loses += 1
             if reward == 1:
-                node.wins += 1
-            node.visits += 1
-            node = node.parent
+                current_node.wins += 1
+            current_node.visits += 1
+            current_node = current_node.parent
+            if current_node is None:
+                break
 
-    def explore_score(self, node):  # UCB (upper confident bound) score to calculate whether to explore or a certain node
-        score = node.get_score()
-        return score + 2 * (np.sqrt(np.log(node.parent.visits + np.e + (10 ** -6)) / (score + (10 ** -10))))
+    def best_child(self, node):  # UCB (upper confident bound) score to calculate whether to explore or a certain node
+        c_param = 0.1
+        return node.children[np.argmax([(c.get_score() / c.visits) + c_param * np.sqrt((2 * np.log(node.visits) / c.visits))
+                                        for c in node.children])]
 
-    def result(self, node, iteration):
-        plr = 1 if iteration % 2 != 0 else -1
-        if node.board.is_game_over():
-            return plr * 1
+    def result(self, board, iteration):
+        plr = -1 if iteration % 2 != 0 else 1
+        if board.is_game_over():
+            return plr * -1
         else:
-            if node.board.score() > 0:
-                return plr * -1
-            else:
+            if board.score() > 0:
                 return plr * 1
+            else:
+                return plr * -1
 
 
 class Node:  # node used in the MCTS algorithm, storing the board, children, parent, wins, loses and visits
     def __init__(self, board, parent=None, action=None):
         self.board = board
-        self.children = []
         self.parent = parent
+        self.parent_action = action
+        self.children = []
+        self.visits = 0
         self.wins = 0
         self.loses = 0
-        self.visits = 0
         self.untried_actions = copy.deepcopy(board.legal_moves)
-        self.parent_action = action
 
     def get_score(self):  # score used to calculate which child node of the root node leads to the best results
         return self.wins - self.loses
+
+    def get_visits(self):
+        return self.visits
