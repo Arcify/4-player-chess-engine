@@ -36,6 +36,9 @@ class Player(object):
         """
         return self.color
 
+    def get_king_pos(self):
+        return self.king
+
     def play(self):
         """
         Interface method to play a move
@@ -73,11 +76,13 @@ class Player(object):
                     elif row == 6 or column == 6:
                         if color in "blueyellow":  # then there is a king piece on this row/column
                             board.piece_locations[Position(row, column)] = King("K", color, allies)
+                            board.king_positions[1 if color == "blue" else 2] = Position(row, column)
                         else:  # there is a queen piece on this row/column
                             board.piece_locations[Position(row, column)] = Queen("Q", color, allies)
                     elif row == 7 or column == 7:
                         if color in "redgreen":
                             board.piece_locations[Position(row, column)] = King("K", color, allies)
+                            board.king_positions[0 if color == "red" else 3] = Position(row, column)
                         else:
                             board.piece_locations[Position(row, column)] = Queen("Q", color, allies)
                 else:
@@ -118,10 +123,7 @@ class RandomComputerPlayer(Player):
             print("----Generating random move for " + self.color + "-----")
             return board.legal_moves[random.randint(0, len(board.legal_moves) - 1)]
         elif self.algorithm == "2":
-            start_time = time.time()
-            self.alpha_beta(board, 1, 1, float('-inf'), float('inf'))
-            end_time = time.time() - start_time
-            print("Execution time: ", end_time)
+            self.alpha_beta(board, 4, 4, float('-inf'), float('inf'))
             return self.best_move
         elif self.algorithm == "3":
             return self.monte_carlo(board)
@@ -134,7 +136,8 @@ class RandomComputerPlayer(Player):
         if board.legal_moves is None:
             return board.score()
         best_score = float('-inf')
-        for move in board.legal_moves:
+        ordered_moves = self.get_ordered_moves(board)
+        for move in ordered_moves:
             score = -self.alpha_beta(board.simulate(move), depth - 1, initial_depth, -beta, -alpha)
             if score > best_score:
                 best_score = score
@@ -146,9 +149,16 @@ class RandomComputerPlayer(Player):
                 break
         return best_score
 
+    def get_ordered_moves(self, board):
+        def order(move):
+            return board.simulate(move, switch=False).score()
+
+        in_order = sorted(board.legal_moves, key=order, reverse=True)
+        return in_order
+
     def monte_carlo(self, board):
         root = Node(board)
-        nr_iter = 500
+        nr_iter = 1000
         for i in range(nr_iter):
             expanded_node = self.selection(root)
             reward = self.rollout(expanded_node)
@@ -175,7 +185,7 @@ class RandomComputerPlayer(Player):
         iter = 0
         while not current_board.is_game_over():
             # current_board.show_board()
-            if iter == 10:
+            if iter == 5:
                 return self.result(current_board)
             action = random.choice(current_board.legal_moves)
             current_board = current_board.simulate(action)

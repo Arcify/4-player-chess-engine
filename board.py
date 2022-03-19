@@ -1,5 +1,6 @@
 import pygame as p
 from helpers import Position, Move
+import time
 
 
 class Board:
@@ -8,7 +9,7 @@ class Board:
     has methods to perform actions on the board.
     """
 
-    def __init__(self, dimension, players, locations, current_player):
+    def __init__(self, dimension, players, locations, current_player, king_positions):
         """
         Initializes the board of the game.
 
@@ -27,6 +28,7 @@ class Board:
         self.legal_moves = []
         self.players = players
         self.current_player = current_player  # red always plays the first move
+        self.king_positions = king_positions
 
     def get_current_player(self):
         return self.players[self.current_player]
@@ -43,7 +45,6 @@ class Board:
         p.init()
         display = p.display.set_mode(size=(504 + 250, 504))
         display.fill(p.Color("black"))
-        clock = p.time.Clock()
         colors = [p.Color("white"), p.Color("gray")]
         for row in range(14):
             for column in range(14):
@@ -58,7 +59,6 @@ class Board:
                         display.blit(image,
                                      p.Rect(column * self.sq_size, row * self.sq_size, self.sq_size, self.sq_size))
 
-        clock.tick(15)
         p.display.flip()
 
     def remove_piece(self, position):
@@ -138,6 +138,8 @@ class Board:
         """
         removed_piece = self.remove_piece(move.get_end_position())
         new_end_pos = Position(move.end_position.get_x(), move.end_position.get_y())
+        if self.piece_locations[move.get_start_position()].get_piece_name() == "K":
+            self.king_positions[self.current_player] = new_end_pos
         self.piece_locations[new_end_pos] = self.piece_locations.pop(move.get_start_position())
         return removed_piece
 
@@ -213,6 +215,7 @@ class Board:
         check_info = []
         pin_info = {}
         position = self.get_king_pos()
+
         if position is None:
             return True, pin_info, check_info
         directions = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
@@ -271,10 +274,7 @@ class Board:
             return False
 
     def get_king_pos(self):
-        for pos in self.piece_locations.keys():
-            piece = self.piece_locations[pos]
-            if piece.get_color() == self.get_current_player().get_color() and piece.get_piece_name() == 'K':
-                return pos
+        return self.king_positions[self.current_player]
 
     def switch_players(self):
         """
@@ -300,7 +300,7 @@ class Board:
         return score
 
     def simulate(self, move, switch=True):
-        new_board = Board(14, self.players, self.piece_locations.copy(), self.current_player)
+        new_board = Board(14, self.players, self.piece_locations.copy(), self.current_player, self.king_positions.copy())
         # not sure if doing a shallow copy will cause problems later on
         new_board.make_move(move)
         if switch:

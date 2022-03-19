@@ -6,6 +6,8 @@ import pygame as p
 from helpers import Move, Position
 from board import Board
 from players import RandomComputerPlayer, HumanPlayer
+import time
+import cProfile
 
 
 class FourPlayerChess(object):
@@ -36,7 +38,7 @@ class FourPlayerChess(object):
         else:
             players = [HumanPlayer("red"), HumanPlayer("blue"), HumanPlayer("yellow"),
                        HumanPlayer("green")]
-        self.board = Board(14, players, {}, 0)
+        self.board = Board(14, players, {}, 0, {})
         players[0].initialize_pieces((12, 14), (3, 11), "red", "redyellow", (-1, 0), (-1, -1), (-1, 1), self.board)
         players[1].initialize_pieces((3, 11), (0, 2), "blue", "bluegreen", (0, 1), (-1, 1), (1, 1), self.board)
         players[2].initialize_pieces((0, 2), (3, 11), "yellow", "redyellow", (1, 0), (1, 1), (1, -1), self.board)
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     keep_playing = True
     game = FourPlayerChess()
     while keep_playing:
-        game.play()
+        cProfile.run("game.play()", sort="tottime")
         answer = input("Do you want to play another game? [y/n] ")
         if answer != 'y':
             keep_playing = False
