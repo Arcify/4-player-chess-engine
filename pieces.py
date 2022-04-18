@@ -8,7 +8,7 @@ class Piece(object):
     the pieces.
     """
 
-    def __init__(self, piece_name, color, allied_colors):
+    def __init__(self, piece_name, color, team):
         """
         Initializes a piece by setting the position, name, color and allied colors
         of the piece.
@@ -23,7 +23,7 @@ class Piece(object):
         """
         self.piece_name = piece_name
         self.color = color
-        self.allied_colors = allied_colors
+        self.team = team
 
     def __str__(self):
         """
@@ -42,7 +42,7 @@ class Piece(object):
         """
         pass
 
-    def get_allied_colors(self):
+    def get_team(self):
         """
         Returns the allied colors of the piece
 
@@ -50,7 +50,7 @@ class Piece(object):
 
         Returns: allied_colors (str): The allied colors of the piece
         """
-        return self.allied_colors
+        return self.team
 
     def get_color(self):
         """
@@ -84,7 +84,7 @@ class Pawn(Piece):
     """
 
     def __init__(self, piece_name, color, direction, diag_left_direction,
-                 diag_right_direction, allied_colors, start_position):
+                 diag_right_direction, team, start_position):
         """
         Initializes the pawn.
 
@@ -100,7 +100,7 @@ class Pawn(Piece):
         Returns:
             None
         """
-        super(Pawn, self).__init__(piece_name, color, allied_colors)
+        super(Pawn, self).__init__(piece_name, color, team)
         self.direction = direction
         self.diag_left_direction = diag_left_direction
         self.diag_right_direction = diag_right_direction
@@ -146,7 +146,7 @@ class Pawn(Piece):
                                 # no piece in either of two squares in front of pawn
                                 moves.append(Move(position, end_position_two_squares))
             if board.check_for_piece(end_position_diag_left) is not None:
-                if board.check_for_piece(end_position_diag_left).get_color() not in self.allied_colors:
+                if board.check_for_piece(end_position_diag_left).get_color() not in self.get_team():
                     # enemy piece diagonal to the left
                     if poss_positions is None or end_position_diag_left:
                         if pin_direction is None or pin_direction == (
@@ -154,7 +154,7 @@ class Pawn(Piece):
                                 pin_direction == (-self.diag_left_direction[0], -self.diag_left_direction[1]):
                             moves.append(Move(position, end_position_diag_left))
             if board.check_for_piece(end_position_diag_right) is not None:
-                if board.check_for_piece(end_position_diag_right).get_color() not in self.allied_colors:
+                if board.check_for_piece(end_position_diag_right).get_color() not in self.get_team():
                     # enemy piece diagonal to the right
                     if poss_positions is None or end_position_diag_right in poss_positions:
                         if pin_direction is None or pin_direction == (
@@ -196,7 +196,7 @@ class Knight(Piece):
                     if board.check_for_piece(end_position) is None:  # no piece on end position
                         moves.append(Move(position, end_position))
                     else:
-                        if board.check_for_piece(end_position).get_color() not in self.allied_colors:
+                        if board.check_for_piece(end_position).get_color() not in self.get_team():
                             # enemy piece on end position
                             moves.append(Move(position, end_position))
 
@@ -243,7 +243,7 @@ class Bishop(Piece):
                                     -direction[0], -direction[1]) == pin_direction:
                                 moves.append(Move(position, end_position))
                     else:
-                        if board.check_for_piece(end_position).get_color() not in self.allied_colors:
+                        if board.check_for_piece(end_position).get_color() not in self.get_team():
                             if poss_positions is None or end_position in poss_positions:
                                 if pin_direction is None or direction == pin_direction or (
                                         -direction[0], -direction[1]) == pin_direction:
@@ -297,7 +297,7 @@ class Rook(Piece):
                                     -direction[0], -direction[1]) == pin_direction:
                                 moves.append(Move(position, end_position))
                     else:
-                        if board.check_for_piece(end_position).get_color() not in self.allied_colors:
+                        if board.check_for_piece(end_position).get_color() not in self.get_team():
                             if poss_positions is None or end_position in poss_positions:
                                 if pin_direction is None or direction == pin_direction or (
                                         -direction[0], -direction[1]) == pin_direction:
@@ -375,7 +375,7 @@ class King(Piece):
                         moves.append(Move(position, end_position))
                         # no pieces on position thus can move king to end position
                     else:
-                        if board.check_for_piece(end_position).get_color() not in self.allied_colors:
+                        if board.check_for_piece(end_position).get_color() not in self.get_team():
                             # can capture enemy piece thus can move king to end position
                             moves.append(Move(position, end_position))
         return moves

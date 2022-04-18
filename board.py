@@ -42,6 +42,7 @@ class Board:
         Returns:
             board (str): The board represented by letters, dashes, asterisks and numbers
         """
+        color_dict = {0: "red", 1: "blue", 2: "yellow", 3: "green"}
         p.init()
         display = p.display.set_mode(size=(504 + 250, 504))
         display.fill(p.Color("black"))
@@ -54,7 +55,7 @@ class Board:
                     p.draw.rect(display, color, p.Rect(column * (504 // 14), row * (504 // 14), 504 // 14, 504 // 14))
                     piece = self.check_for_piece(Position(row, column))
                     if piece is not None:
-                        image = p.transform.scale(p.image.load("images/" + piece.color +
+                        image = p.transform.scale(p.image.load("images/" + color_dict[piece.get_color()] +
                                                                piece.piece_name + ".png"), (self.sq_size, self.sq_size))
                         display.blit(image,
                                      p.Rect(column * self.sq_size, row * self.sq_size, self.sq_size, self.sq_size))
@@ -100,12 +101,9 @@ class Board:
 
         Returns (bool): Whether the position is located on the chess board
         """
-        if (((3 <= position.get_x() <= 10) and (0 <= position.get_y() <= 13)) or
-                (0 <= position.get_x() < 3 <= position.get_y() <= 10) or
-                (13 >= position.get_x() > 10 >= position.get_y() >= 3)):
-            return True
-        else:
-            return False
+        return 3 <= position.get_x() <= 10 and 0 <= position.get_y() <= 13 or \
+               0 <= position.get_x() < 3 <= position.get_y() <= 10 or \
+               13 >= position.get_x() > 10 >= position.get_y() >= 3
 
     def getmove(self, position, xm, ym):
         """
@@ -227,12 +225,12 @@ class Board:
                 if self.is_on_board(end_position):
                     piece = self.check_for_piece(end_position)
                     if piece is not None:
-                        if self.get_current_player().get_color() in piece.get_allied_colors():
+                        if self.get_current_player().get_color() in piece.get_team():
                             if possible_pin == ():
                                 possible_pin = (end_position, direction)
                             else:
                                 break
-                        elif self.get_current_player().get_color() not in piece.get_allied_colors():
+                        elif self.get_current_player().get_color() not in piece.get_team():
                             if self.possible_check(k, tile, piece, direction):
                                 if possible_pin == ():
                                     in_check = True
@@ -251,7 +249,7 @@ class Board:
             if self.is_on_board(end_pos):
                 poss_piece = self.check_for_piece(end_pos)
                 if poss_piece is not None:
-                    if self.get_current_player().get_color() not in poss_piece.get_allied_colors():
+                    if self.get_current_player().get_color() not in poss_piece.get_team():
                         if poss_piece.get_piece_name() == "N":
                             in_check = True
                             check_info.append((end_pos, m))
@@ -292,7 +290,7 @@ class Board:
     def score(self):
         score = 0
         for piece in self.piece_locations.values():
-            if self.players[self.current_player].get_color() in piece.get_allied_colors():
+            if self.players[self.current_player].get_color() in piece.get_team():
                 score += piece.get_score()
             else:
                 score -= piece.get_score()
@@ -300,7 +298,8 @@ class Board:
         return score
 
     def simulate(self, move, switch=True):
-        new_board = Board(14, self.players, self.piece_locations.copy(), self.current_player, self.king_positions.copy())
+        new_board = Board(14, self.players, self.piece_locations.copy(), self.current_player,
+                          self.king_positions.copy())
         # not sure if doing a shallow copy will cause problems later on
         new_board.make_move(move)
         if switch:

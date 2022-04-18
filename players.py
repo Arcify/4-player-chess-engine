@@ -17,13 +17,13 @@ class Player(object):
         Initializes a player.
 
         Args:
-            color (str): the color that is used by the player
+            color (int): the color that is used by the player
 
         Returns:
             None
         """
         self.color = color
-        self.allied_colors = "redyellow" if color in "redyellow" else "bluegreen"
+        self.team = {0, 2} if color == 0 or color == 2 else {1, 3}
 
     def get_color(self):
         """
@@ -32,12 +32,9 @@ class Player(object):
         Args: None
 
         Returns:
-            color (str): The color of the player
+            color (int): The color of the player
         """
         return self.color
-
-    def get_king_pos(self):
-        return self.king
 
     def play(self):
         """
@@ -45,15 +42,13 @@ class Player(object):
         """
         pass
 
-    def initialize_pieces(self, x_range, y_range, color, allies, direction, diag_left, diag_right, board):
+    def initialize_pieces(self, x_range, y_range, color, team, direction, diag_left, diag_right, board):
         """
         Initializes all the pieces of the player at the start of the game.
 
         Args:
             x_range (tuple): The start and end row of the outer loop
             y_range (tuple): The start and end column of the inner loop
-            color (str): The color of a piece
-            allies (str): The two colors of a team of two players
             direction (tuple): Direction a pawn moves to consisting of an x and an y value
             diag_left (tuple): Direction of a pawn when capturing diagonal to the left
             diag_right (tuple): Direction of a pawn when capturing diagonal to the right
@@ -68,26 +63,26 @@ class Player(object):
                 # are not symmetric
                 if (row == 0 or row == 13) or (column == 0 or column == 13):
                     if (row == 3 or row == 10) or (column == 3 or column == 10):
-                        board.piece_locations[Position(row, column)] = Rook("R", color, allies)
+                        board.piece_locations[Position(row, column)] = Rook("R", color, team)
                     elif (row == 4 or row == 9) or (column == 4 or column == 9):
-                        board.piece_locations[Position(row, column)] = Knight("N", color, allies)
+                        board.piece_locations[Position(row, column)] = Knight("N", color, team)
                     elif (row == 5 or row == 8) or (column == 5 or column == 8):
-                        board.piece_locations[Position(row, column)] = Bishop("B", color, allies)
+                        board.piece_locations[Position(row, column)] = Bishop("B", color, team)
                     elif row == 6 or column == 6:
-                        if color in "blueyellow":  # then there is a king piece on this row/column
-                            board.piece_locations[Position(row, column)] = King("K", color, allies)
-                            board.king_positions[1 if color == "blue" else 2] = Position(row, column)
+                        if color == 1 or color == 2:  # then there is a king piece on this row/column
+                            board.piece_locations[Position(row, column)] = King("K", color, team)
+                            board.king_positions[color] = Position(row, column)
                         else:  # there is a queen piece on this row/column
-                            board.piece_locations[Position(row, column)] = Queen("Q", color, allies)
+                            board.piece_locations[Position(row, column)] = Queen("Q", color, team)
                     elif row == 7 or column == 7:
-                        if color in "redgreen":
-                            board.piece_locations[Position(row, column)] = King("K", color, allies)
-                            board.king_positions[0 if color == "red" else 3] = Position(row, column)
+                        if color == 0 or color == 3:
+                            board.piece_locations[Position(row, column)] = King("K", color, team)
+                            board.king_positions[color] = Position(row, column)
                         else:
-                            board.piece_locations[Position(row, column)] = Queen("Q", color, allies)
+                            board.piece_locations[Position(row, column)] = Queen("Q", color, team)
                 else:
                     board.piece_locations[Position(row, column)] = Pawn("P", color, direction, diag_left, diag_right,
-                                                                        allies, Position(row, column))
+                                                                        team, Position(row, column))
 
 
 class HumanPlayer(Player):

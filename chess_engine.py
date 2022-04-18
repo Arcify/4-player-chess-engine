@@ -33,16 +33,16 @@ class FourPlayerChess(object):
                     "Choose the algorithm to be used: \n1 = Random 2 = Alpha-Beta 3 = MonteCarlo 4 = Neural Network\n")
                 if algorithm in ("1", "2", "3", "4"):
                     break
-            players = [RandomComputerPlayer("red", algorithm), RandomComputerPlayer("blue", algorithm),
-                       RandomComputerPlayer("yellow", algorithm), RandomComputerPlayer("green", algorithm)]
+            players = [RandomComputerPlayer(0, algorithm), RandomComputerPlayer(1, algorithm),
+                       RandomComputerPlayer(2, algorithm), RandomComputerPlayer(3, algorithm)]
         else:
-            players = [HumanPlayer("red"), HumanPlayer("blue"), HumanPlayer("yellow"),
-                       HumanPlayer("green")]
+            players = [HumanPlayer(0), HumanPlayer(1), HumanPlayer(2),
+                       HumanPlayer(3)]
         self.board = Board(14, players, {}, 0, {})
-        players[0].initialize_pieces((12, 14), (3, 11), "red", "redyellow", (-1, 0), (-1, -1), (-1, 1), self.board)
-        players[1].initialize_pieces((3, 11), (0, 2), "blue", "bluegreen", (0, 1), (-1, 1), (1, 1), self.board)
-        players[2].initialize_pieces((0, 2), (3, 11), "yellow", "redyellow", (1, 0), (1, 1), (1, -1), self.board)
-        players[3].initialize_pieces((3, 11), (12, 14), "green", "bluegreen", (0, -1), (1, -1), (-1, -1), self.board)
+        players[0].initialize_pieces((12, 14), (3, 11), 0, {0, 2}, (-1, 0), (-1, -1), (-1, 1), self.board)
+        players[1].initialize_pieces((3, 11), (0, 2), 1, {1, 3}, (0, 1), (-1, 1), (1, 1), self.board)
+        players[2].initialize_pieces((0, 2), (3, 11), 2, {0, 2}, (1, 0), (1, 1), (1, -1), self.board)
+        players[3].initialize_pieces((3, 11), (12, 14), 3, {1, 3}, (0, -1), (1, -1), (-1, -1), self.board)
 
     def play(self):
         """
